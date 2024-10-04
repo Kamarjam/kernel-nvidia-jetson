@@ -3,6 +3,7 @@
 DTC_CPP_FLAGS += $(EXTRA_CPP_FLAGS)
 
 DTC_CPP_FLAGS += -DLINUX_VERSION=504 -DTEGRA_HOST1X_DT_VERSION=1
+DTC_CPP_FLAGS += -Wno-builtin-macro-redefined -D__FILE__='"$(notdir $<)"'
 
 DTC_INCLUDE += $(tegra-dtstree)/soc/tegra/kernel-include
 DTC_INCLUDE += $(tegra-dtstree)/platform/tegra/common/kernel-dts
@@ -47,8 +48,8 @@ dts_mfiles = $(call dts_makefile, $(tegra-dtstree)/platform/, Makefile)
 ifneq ($(dts_mfiles),)
 dts-include :=
 include $(dts_mfiles)
-dtb-y := $(addprefix $(tegra-rel-dtstree)/hardware/nvidia/,$(dtb-y))
-dtbo-y := $(addprefix $(tegra-rel-dtstree)/hardware/nvidia/,$(dtbo-y))
+dtb-y := $(addprefix $(tegra-rel-dtstree)/nvidia/,$(dtb-y))
+dtbo-y := $(addprefix $(tegra-rel-dtstree)/nvidia/,$(dtbo-y))
 ifneq ($(dts-include),)
 DTC_INCLUDE += $(addprefix $(tegra-dtstree)/,$(dts-include))
 endif
@@ -63,42 +64,32 @@ DTBO_NEW_RULE_LIST := $(dtbo-y)
 dtb-y := $(DTB_LIST)
 dtbo-y := $(DTBO_LIST)
 
-DTB_OBJS := $(addprefix $(obj)/,$(DTB_LIST))
-DTBO_OBJS := $(addprefix $(obj)/,$(DTBO_LIST))
+DTB_OBJS := $(addprefix $(obj)/,$(notdir $(DTB_LIST)))
+DTBO_OBJS := $(addprefix $(obj)/,$(notdir $(DTBO_LIST)))
 
 define _define_dtb_rule
 $(obj)/$(call replace_ddot,$(1)): $(src)/$(patsubst %.dtb,%.dts,$(1)) FORCE
+	$$(call if_changed_dep,dtc)
+ifneq ($(1),$(call replace_ddot,$(1)))
+$(obj)/$(notdir $(1)): $(obj)/$(call replace_ddot,$(1))
+	@cp -f $$< $$@
+endif
 endef
 
 $(foreach _dtb, $(DTB_NEW_RULE_LIST), $(eval $(call _define_dtb_rule,$(_dtb))))
 
-DTB_OBJS := $(call replace_ddot,$(DTB_OBJS))
-DTB_NEW_RULE_LIST := $(addprefix $(obj)/,$(DTB_NEW_RULE_LIST))
-DTB_NEW_RULE_LIST := $(call replace_ddot,$(DTB_NEW_RULE_LIST))
-
-$(DTB_NEW_RULE_LIST):
-	$(call if_changed_dep,dtc)
-
 define _define_dtbo_rule
 $(obj)/$(call replace_ddot,$(1)): $(src)/$(patsubst %.dtbo,%.dts,$(1)) FORCE
+	$$(call if_changed_dep,dtc)
+ifneq ($(1),$(call replace_ddot,$(1)))
+$(obj)/$(notdir $(1)): $(obj)/$(call replace_ddot,$(1))
+	@cp -f $$< $$@
+endif
 endef
 
 $(foreach _dtbo, $(DTBO_NEW_RULE_LIST), $(eval $(call _define_dtbo_rule,$(_dtbo))))
 
-DTBO_OBJS := $(call replace_ddot,$(DTBO_OBJS))
-DTBO_NEW_RULE_LIST := $(addprefix $(obj)/,$(DTBO_NEW_RULE_LIST))
-DTBO_NEW_RULE_LIST := $(call replace_ddot,$(DTBO_NEW_RULE_LIST))
-
-$(DTBO_NEW_RULE_LIST):
-	$(call if_changed_dep,dtc)
-
-dtbs: $(DTB_OBJS) $(DTBO_OBJS) FORCE
-	if [ ! -d arch/arm64/boot/dts/nvidia/ ] ; then \
-		mkdir arch/arm64/boot/dts/nvidia/ ; \
-	fi
-	cp -u $(DTB_OBJS) $(DTBO_OBJS) arch/arm64/boot/dts/nvidia/
-	if [ -d arch/arm64/boot/dts/_ddot_/ ] ; then \
-		rm -rf arch/arm64/boot/dts/_ddot_/ ; \
-	fi
+dtbs: $(DTB_OBJS) $(DTBO_OBJS)
+dtb-overlays: $(DTBO_OBJS)
 
 clean-files := *.dtb *.dtbo *.tmp
