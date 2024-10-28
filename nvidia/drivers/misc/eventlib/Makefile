@@ -13,7 +13,7 @@
 # Copyright (c) 2017, NVIDIA CORPORATION.  All rights reserved.
 #
 
-ccflags-y += -Werror -mno-outline-atomics
+ccflags-y += -Werror
 
 obj-$(CONFIG_EVENTLIB) := eventlib-kernel.o
 
